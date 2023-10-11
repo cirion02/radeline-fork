@@ -19,7 +19,6 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
-import update_check
 
 
 class Radeline:
@@ -29,7 +28,6 @@ class Radeline:
 
         validate_settings()
         sys.stdout = Logger()
-        update_check.is_latest_commit()
         self.pids: Dict[str, Optional[int]] = get_pids(init=True)
         self.celeste_path: Optional[str] = None
         self.debugrc_address: Optional[str] = None
@@ -89,6 +87,7 @@ class Radeline:
         # assumes that the TAS is currently functional
         self.run_tas(init=True)
         self.target_data = self.parse_save_file(init=True)
+        print(self.target_data)
 
         if not self.target_data:
             print("Reference data is necessary, exiting")
@@ -282,7 +281,7 @@ class Radeline:
                     self.restart_game()
                     tas_has_finished = True
                 else:
-                    tas_has_finished = "Running: False" in session_data
+                    tas_has_finished = "State: Enable, FrameStep" in session_data
 
                     if not tas_has_finished and not init:
                         deaths_str = session_data.partition('Deaths: ')[2].partition('<')[0].partition('\n')[0] if 'Deaths: ' in session_data else None
@@ -345,36 +344,24 @@ class Radeline:
 
     # read chapter time and current level (room) from debug.celeste
     def parse_save_file(self, init: bool = False) -> dict:
-        try:
-            with open(os.path.join(self.celeste_path, 'saves', 'debug.celeste'), 'r') as save_file:
-                save_file_read = save_file.read()
-        except PermissionError:
-            time.sleep(2)
-            with open(os.path.join(self.celeste_path, 'saves', 'debug.celeste'), 'r') as save_file:
-                save_file_read = save_file.read()
-        except FileNotFoundError:
-            print(f"Can't find debug.celeste{'' if init else ', skipping line'}")
-            return {}
 
+        infoData:str = requests.get(f'{self.debugrc_address}tas/info', timeout=float(settings()['session_short_timeout'])).text
+
+        importantData = infoData.split("Data: [")[1].split("]")[0].split("!")
+        
         parsed: dict = {}
-        soup: BeautifulSoup = BeautifulSoup(save_file_read, 'xml')
 
-        currentsession = soup.find('CurrentSession_Safe')
-        if currentsession is None:
-            currentsession = soup.find('CurrentSession')
-        if currentsession is None:
-            print(f"Couldn't find a CurrentSession tag in debug.celeste, guess the game broke? IDK{'' if init else ', skipping line anyway'}")
-            return {}
-
-        parsed['time'] = int(currentsession.get('Time'))
-        parsed['room'] = currentsession.get('Level')
-        parsed['cassette'] = currentsession.get('Cassette')
-        parsed['heart'] = currentsession.get('HeartGem')
-        parsed['keys'] = len(soup.find_all('Keys')[0].find_all('EntityID'))
-        parsed['berries'] = len(currentsession.find('Strawberries').find_all('EntityID'))
+        parsed['room'] = importantData[0]
+        parsed['time'] = int(importantData[1])
+        parsed['cassette'] = importantData[2] == "True"
+        parsed['heart'] = importantData[3] == "True"
+        parsed['keys'] = 0 if importantData[4] == "" else len(importantData[4].split(","))
+        parsed['berries'] = 0 if importantData[5] == "" else len(importantData[5].split(","))
+        parsed['finished'] = importantData[6] == "True"
 
         if init:
-            self.target_deaths = int(currentsession.get('Deaths'))
+            deathData = infoData.split("Deaths: ")[1].split("<")[0]
+            self.target_deaths = int(deathData)
 
         return parsed
 

@@ -1,3 +1,20 @@
+## Changes
+To work with minihearts this version checks different things. Your file should end with 
+
+135<br>
+\*\*\*<br>
+1
+
+
+135 being the post heartcollect frames
+
+further set your info template to:
+
+Data: \[{Level.Session.Level}!{Level.Session.Time}!{Level.Session.Cassette}!{Level.Session.HeartGem}!{Level.Session.Keys}!{Level.Session.Strawberries}!{Level.Frozen}\]<br>
+Deaths: {Session.Deaths}
+
+
+
 # Radeline
 [![buhbaiSG](buhbaiSG.png)](https://www.frankerfacez.com/emoticon/316755-buhbaiSG)
 
